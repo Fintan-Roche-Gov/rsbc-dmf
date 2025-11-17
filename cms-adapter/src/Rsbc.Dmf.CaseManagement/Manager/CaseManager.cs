@@ -274,6 +274,7 @@ namespace Rsbc.Dmf.CaseManagement
 
         public string TriggerType { get; set; }
         public string Owner { get; set; }
+        public int? ProgramArea { get; set; }
     }
 
   
@@ -3401,7 +3402,6 @@ namespace Rsbc.Dmf.CaseManagement
                 incident newIncident = new incident()
                 {
                     // Check the 
-
                     customerid_contact = driverQuery.dfp_PersonId,
                     // set status to Open Pending for Submission
                     statuscode = 100000000,
@@ -3410,10 +3410,10 @@ namespace Rsbc.Dmf.CaseManagement
                     dfp_progressstatus = 100000000,
                     dfp_dfcmscasesequencenumber = request.SequenceNumber,
                     _ownerid_value = ownerId,
+                    dfp_programarea = request.ProgramArea
                 };
 
                 // Check sequence number on case 
-
 
                 newIncident.incidentid = CreateIncidentGuid(request.DriverLicenseNumber, sequenceNumber);
                 
@@ -3462,8 +3462,8 @@ namespace Rsbc.Dmf.CaseManagement
                 {
                     Log.Error(e, $"CandidateCreate ERROR CREATING INCIDENT - " + e.Message);
                 }
-                
-                
+
+
                 try
                 {
                     // first check to see that the driver is not already linked.
@@ -3475,11 +3475,18 @@ namespace Rsbc.Dmf.CaseManagement
                         dynamicsContext.SetLink(newIncident, nameof(incident.dfp_DriverId), driverQuery);
 
                         // add a link from driver to incident
-                       // dynamicsContext.SetLink(driverQuery, nameof(dfp_driver.dfp_driver_incident_DriverId), newIncident);
-                        await dynamicsContext.SaveChangesAsync();
+                        // dynamicsContext.SetLink(driverQuery, nameof(dfp_driver.dfp_driver_incident_DriverId), newIncident);
+                       
                     }
+                    if (!string.IsNullOrEmpty(request.Owner))
+                    {
+                        var caseTeam = dynamicsContext.teams
+                           .ByKey(new Guid(request.Owner))
+                           .GetValue();
 
-
+                        dynamicsContext.SetLink(newIncident, nameof(incident.ownerid), caseTeam);
+                    }
+                    await dynamicsContext.SaveChangesAsync();
                 }
                 catch (Exception e)
                 {
@@ -3495,13 +3502,21 @@ namespace Rsbc.Dmf.CaseManagement
             return result;
         }
 
+        public Guid? CheckActiveCaseExists(string driverLicenseNumber, string caseTypeCode)
+        {
+            var x1 =dynamicsContext.incidents.Where(x => x.dfp_DriverId.dfp_licensenumber == driverLicenseNumber).FirstOrDefault()?.incidentid;
+            var x2 = dynamicsContext.incidents.Where(x => x.dfp_DriverId.dfp_licensenumber == driverLicenseNumber && x.casetypecode == TranslateCaseType(caseTypeCode)).FirstOrDefault()?.statuscode;
+            var x3 =dynamicsContext.incidents.Where(x => x.dfp_DriverId.dfp_licensenumber == driverLicenseNumber && x.casetypecode == TranslateCaseType(caseTypeCode) && x.statuscode == 100000000).FirstOrDefault()?.incidentid;
+            return dynamicsContext.incidents.Where(x => x.dfp_DriverId.dfp_licensenumber == driverLicenseNumber && x.casetypecode == TranslateCaseType(caseTypeCode) && x.statuscode == 100000000).FirstOrDefault()?.incidentid;
+
+        }
+
         public async Task<ResultStatusReply> CreateRehabTrigger(CreateCaseRequest caseCreateRequest)
         {
             ResultStatusReply result = new ResultStatusReply();
 
             try
             {
-                var x = RehabTriggerType.CCC;
                 var triggerTypeId = Enum.Parse<RehabTriggerType>(caseCreateRequest.TriggerType);
 
 
@@ -3769,6 +3784,7 @@ namespace Rsbc.Dmf.CaseManagement
                 { "POL",100000002 }, //Police Report
                 { "Police Report",100000002 },
                 { "(POL)-PoliceReport", 100000002},
+                { "REM",  100000000},
                 { "OTHR", 100000004 },
 
             };

@@ -62,8 +62,17 @@ namespace Rsbc.Dmf.CaseManagement
                 }
                 else
                 {
+                    if (!string.IsNullOrEmpty(request.TeamId))
+                    {
+                        // create a reference to team
+                        var caseTeam = _dynamicsContext.teams
+                            .ByKey(new Guid(request.TeamId))
+                            .GetValue();
+                        _dynamicsContext.SetLink(newTask, nameof(task.ownerid), caseTeam);
+                    }
+
                     // set the callback owner to case owner
-                    if (@case._ownerid_value != null)
+                    else if (@case._ownerid_value != null)
                     {
                         _dynamicsContext.SetLink(newTask, nameof(task.ownerid), @case._ownerid_value);
                     };

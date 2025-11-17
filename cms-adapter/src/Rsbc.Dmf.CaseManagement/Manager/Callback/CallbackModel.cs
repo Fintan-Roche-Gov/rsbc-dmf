@@ -20,6 +20,7 @@ namespace Rsbc.Dmf.CaseManagement
         // TODO change type to Guid
         public string CaseId { get; set; }
         public string Assignee { get; set; }
+        public string TeamId { get; set; }
 
         public string Subject { get; set; }
 

@@ -497,7 +497,6 @@ namespace Rsbc.Dmf.IcbcAdapter
                     DriverLicenseNumber = dmf_case.LNUM,
                     CaseTypeCode = "REM",
                     TriggerType = dmf_case.CAND_CAUSE_CD,
-                    Owner = "Remedial"
                 };
 
                 _caseManagerClient.CreateCase(caseToCreate);
@@ -597,14 +596,15 @@ namespace Rsbc.Dmf.IcbcAdapter
         {
             Log.Logger.Information("Fetching ICBC Notifications dat file...");
 
-            using var httpClient = new HttpClient();
+            //using var httpClient = new HttpClient();
             //TO Do update ICBC_Notifaction_Endpoint
-            var endpointUrl = "ICBC_Notifaction_Endpoint";
-            using var response = await httpClient.GetAsync(endpointUrl);
-            response.EnsureSuccessStatusCode();
+            //var endpointUrl = "ICBC_Notifaction_Endpoint";
+            //using var response = await httpClient.GetAsync(endpointUrl);
+            //response.EnsureSuccessStatusCode();
 
-            var fileBytes = await response.Content.ReadAsByteArrayAsync();
-
+            //var fileBytes = await response.Content.ReadAsByteArrayAsync();
+            string FileBase64 = "MDA1MDA1NTQwMTIzNDU2NzJEU0NTICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIE1DQ0MgIDE5OTYtMDItMjYgICAgICAgICAgMjAxNy0wNS0wMzIwMTctMDUtMDMxNTAwMjAyNS0wNi0xMQ0KMDAyMDAyOTM5ODc2NTQzMjNCQUNPTiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIEZDQ0MgIDE5NjYtMDEtMDQgICAgICAgICAgMjAxMy0wNy0xOTIwMjUtMDMtMjAxNTAwMjAyNS0wNi0xMQ0KMDAyMDAzOTMxOTI4Mzc0NjFISUxMQ1JFU1QgICAgICAgICAgICAgICAgICAgICAgICAgIE1BRE0gIDE5OTktMDQtMjAyMDI5LTA0LTIwMjAyNC0wOC0yODIwMTktMDUtMTkxMzYwMjAyNS0wNi0xMQ0KDQo=";
+            var fileBytes = Convert.FromBase64String(FileBase64);
             var stream = new MemoryStream(fileBytes);
 
             var formFile = new FormFile(stream, 0, stream.Length, "file", "ICBC_Notifactions")

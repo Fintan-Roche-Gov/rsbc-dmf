@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OData.Client;
 using Pssg.SharedUtils;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Rsbc.Dmf.CaseManagement.Dynamics;
 using static Rsbc.Dmf.CaseManagement.Service.DecisionItem.Types;
 using static Rsbc.Dmf.CaseManagement.Service.PdfDocument.Types;
 
@@ -22,17 +24,19 @@ namespace Rsbc.Dmf.CaseManagement.Service
     {
         private readonly ILogger<CaseService> _logger;
         private readonly ICaseManager _caseManager;
+        private readonly ICallbackManager _callbackManager;
         private readonly IDocumentManager _documentManager;
         private readonly IConfiguration _configuration;
         private readonly IMapper _mapper;
 
-        public CaseService(ILogger<CaseService> logger, ICaseManager caseManager, IDocumentManager documentManager, IConfiguration configuration, IMapper mapper)
+        public CaseService(ILogger<CaseService> logger, ICaseManager caseManager, IDocumentManager documentManager, IConfiguration configuration, IMapper mapper, ICallbackManager callbackManager)
         {
             _configuration = configuration;
             _logger = logger;
             _caseManager = caseManager;
             _documentManager = documentManager;
             _mapper = mapper;
+            _callbackManager = callbackManager;
         }
 
         /// <summary>
@@ -1703,20 +1707,49 @@ namespace Rsbc.Dmf.CaseManagement.Service
                     CaseId = request.CaseId,
                     DriverLicenseNumber = request.DriverLicenseNumber,
                     TriggerType =request.TriggerType,
-                    Owner = request.Owner
+                    Owner = request.Owner,
+                    CaseTypeCode = request.CaseTypeCode,
+                    ProgramArea = 100000001
                 };
 
+                var activeExistingCaseId = _caseManager.CheckActiveCaseExists(caseCreateRequest.DriverLicenseNumber, caseCreateRequest.CaseTypeCode);
 
-                var createDriver = await _caseManager.CreateCase(caseCreateRequest);
-                caseCreateRequest.CaseId = createDriver?.Id;
+                if (activeExistingCaseId == null)
+                {
+                    var createDriver = await _caseManager.CreateCase(caseCreateRequest);
+                    caseCreateRequest.CaseId = createDriver?.Id;
+                }
+                else
+                {
+                    caseCreateRequest.CaseId = activeExistingCaseId.ToString();
+                }
 
-                if(caseCreateRequest.TriggerType != null)
+
+
+                if (caseCreateRequest.TriggerType != null)
                 {
                     await _caseManager.CreateRehabTrigger(caseCreateRequest);
                 }
-                
 
-                   reply.ResultStatus = ResultStatus.Success;
+                var x = DateTime.Now;
+                var y = DateTimeOffset.Now;
+                var t = new DateTimeOffset();
+                var o = DateTime.UtcNow;
+
+                var callBackRequest = new CaseManagement.Callback()
+                {
+                    CaseId = caseCreateRequest.CaseId,
+                    TeamId = caseCreateRequest.Owner,
+                    Assignee = caseCreateRequest.Owner,
+                    RequestCallback = DateTime.UtcNow,
+                    Subject = $"A new Rehab Trigger ({caseCreateRequest.TriggerType} notification has been received on driver)",
+                    Description = $"A/An {caseCreateRequest.TriggerType} notification has been added to the driver from ICBC"
+                };
+
+                await _callbackManager.Create(callBackRequest);
+
+
+                reply.ResultStatus = ResultStatus.Success;
             }
 
             catch(Exception e) 

@@ -123,5 +123,6 @@ namespace Rsbc.Dmf.CaseManagement
 
         Task<CreateStatusReply> CreateICBCMedicalCandidateComment(LegacyComment request);
         Task<ResultStatusReply> CreateRehabTrigger(CreateCaseRequest caseCreateRequest);
+        Guid? CheckActiveCaseExists(string driverLicenseNumber, string caseTypeCode);
     }
 }
