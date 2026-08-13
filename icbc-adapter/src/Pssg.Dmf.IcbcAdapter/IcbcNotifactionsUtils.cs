@@ -28,13 +28,11 @@ namespace Rsbc.Dmf.IcbcAdapter
         private readonly CaseManager.CaseManagerClient _caseManagerClient;
         private readonly DocumentStorageAdapter.DocumentStorageAdapterClient? _documentStorageAdapterClient;
 
-        private readonly IIcbcClient _icbcClient;
 
-        public IcbcNotifactionsUtils(IConfiguration configuration, CaseManager.CaseManagerClient caseManagerClient, IIcbcClient icbcClient, DocumentStorageAdapter.DocumentStorageAdapterClient? documentStorageAdapterClient)
+        public IcbcNotifactionsUtils(IConfiguration configuration, CaseManager.CaseManagerClient caseManagerClient, DocumentStorageAdapter.DocumentStorageAdapterClient? documentStorageAdapterClient)
         {
             _configuration = configuration;
             _caseManagerClient = caseManagerClient;
-            _icbcClient = icbcClient;
             _documentStorageAdapterClient = documentStorageAdapterClient;
         }
 
