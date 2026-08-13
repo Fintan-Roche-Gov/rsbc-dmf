@@ -96,27 +96,27 @@ namespace Rsbc.Dmf.IcbcAdapter
 				var total = 0;
 				foreach (var item in cases)
 				{
-                try
-                {
-                    var caseToCreate = caseMapper(item);
+					try
+					{
+						var caseToCreate = caseMapper(item);
 
-					var result = await _caseManagerClient.CreateDmerCaseAsync(caseToCreate);
-					var recordLog = new RecordTrackingLogs
-                    {
-                        FileId = Guid.NewGuid().ToString(),
-                        RecordId = Guid.NewGuid().ToString(),
-                        RecievedTime = DateTime.UtcNow,
-                        ProcessedTime = DateTime.UtcNow,
-                        Status = result.ResultStatus == DmerStatusReply.Types.DmerResultStatus.Success ? StatusTracking.Processed : StatusTracking.ProcessedWithErrors,
-                        RecordDetails = result.ErrorDetail,
-                        DrivingLicenseNumber = item.DriverLicenseNumber
-                    };
-                    total++;
-				}
-                catch (Exception ex)
-                {
-                    Log.Logger.Error("Error creating/updating DMER cases: " + ex.Message);
-                }
+						var result = await _caseManagerClient.CreateDmerCaseAsync(caseToCreate);
+						var recordLog = new RecordTrackingLogs
+						{
+							FileId = Guid.NewGuid().ToString(),
+							RecordId = Guid.NewGuid().ToString(),
+							RecievedTime = DateTime.UtcNow,
+							ProcessedTime = DateTime.UtcNow,
+							Status = result.ResultStatus == DmerStatusReply.Types.DmerResultStatus.Success ? StatusTracking.Processed : StatusTracking.ProcessedWithErrors,
+							RecordDetails = result.ErrorDetail,
+							DrivingLicenseNumber = item.DriverLicenseNumber
+						};
+						total++;
+					}
+					catch (Exception ex)
+					{
+						Log.Logger.Error("Error creating/updating DMER cases: " + ex.Message);
+					}
 
                 Log.Logger.Information($"Successfully proccessed {total} DMER cases see cms logs for more details");
 			}

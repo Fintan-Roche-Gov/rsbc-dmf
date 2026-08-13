@@ -55,30 +55,30 @@ namespace Rsbc.Dmf.IcbcAdapter
 
         internal async Task CreateOrUpdateCases(List<DRVILS> cases)
         {
-            try
-            {
+
                 foreach (DRVILS dmf_case in cases)
                 {
-                    var caseToCreate = new CreateCaseRequest()
+                    try
                     {
-                        DriverLicenseNumber = dmf_case.LNUM,
-                        CaseTypeCode = "REM",
-                        TriggerType = dmf_case.CAND_CAUSE_CD,
-                        Owner = "Remedial",
-                        DriverDateOfBirth = Timestamp.FromDateTime(DateTime.SpecifyKind(DateTime.Parse(dmf_case.BIRTH_DT), DateTimeKind.Utc)),
-                        DriverSurname = dmf_case.SURNAME
-                    };
+                        var caseToCreate = new CreateCaseRequest()
+                        {
+                            DriverLicenseNumber = dmf_case.LNUM,
+                            CaseTypeCode = "REM",
+                            TriggerType = dmf_case.CAND_CAUSE_CD,
+                            Owner = "Remedial",
+                            DriverDateOfBirth = Timestamp.FromDateTime(DateTime.SpecifyKind(DateTime.Parse(dmf_case.BIRTH_DT), DateTimeKind.Utc)),
+                            DriverSurname = dmf_case.SURNAME
+                        };
 
-                    await _caseManagerClient.CreateCaseAsync(caseToCreate);
-                }
-
-               
+                        await _caseManagerClient.CreateCaseAsync(caseToCreate);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Logger.Error("Error creating/updating cases: " + ex.Message);
+                    }
                 Log.Logger.Information($"Successfully proccessed {cases.Count} cases see cms logs for more details");
             }
-            catch (Exception ex)
-            {
-                Log.Logger.Error("Error creating/updating cases: " + ex.Message);
-            }
+
             
 
         }
