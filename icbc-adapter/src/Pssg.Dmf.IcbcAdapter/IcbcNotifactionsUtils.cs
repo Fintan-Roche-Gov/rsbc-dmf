@@ -45,8 +45,10 @@ namespace Rsbc.Dmf.IcbcAdapter
                 {
 
                     var cases = await ParseIcbcNotication(notification);
-
-                    await CreateOrUpdateCases(cases);
+                    if (cases != null)
+                    {
+                        await CreateOrUpdateCases(cases);
+                    }
                 }
                 await RemoveFilesFromIcbcS3Bucket(notifactions.NotificationFiles.Keys);
             }
@@ -55,32 +57,32 @@ namespace Rsbc.Dmf.IcbcAdapter
 
         internal async Task CreateOrUpdateCases(List<DRVILS> cases)
         {
-
-                foreach (DRVILS dmf_case in cases)
+            var total = 0;
+            var errors = 0;
+            foreach (DRVILS dmf_case in cases)
+            {
+                try
                 {
-                    try
+                    var caseToCreate = new CreateCaseRequest()
                     {
-                        var caseToCreate = new CreateCaseRequest()
-                        {
-                            DriverLicenseNumber = dmf_case.LNUM,
-                            CaseTypeCode = "REM",
-                            TriggerType = dmf_case.CAND_CAUSE_CD,
-                            Owner = "Remedial",
-                            DriverDateOfBirth = Timestamp.FromDateTime(DateTime.SpecifyKind(DateTime.Parse(dmf_case.BIRTH_DT), DateTimeKind.Utc)),
-                            DriverSurname = dmf_case.SURNAME
-                        };
+                        DriverLicenseNumber = dmf_case.LNUM,
+                        CaseTypeCode = "REM",
+                        TriggerType = dmf_case.CAND_CAUSE_CD,
+                        Owner = "Remedial",
+                        DriverDateOfBirth = Timestamp.FromDateTime(DateTime.SpecifyKind(DateTime.Parse(dmf_case.BIRTH_DT), DateTimeKind.Utc)),
+                        DriverSurname = dmf_case.SURNAME
+                    };
 
-                        await _caseManagerClient.CreateCaseAsync(caseToCreate);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Logger.Error("Error creating/updating cases: " + ex.Message);
-                    }
-                Log.Logger.Information($"Successfully proccessed {cases.Count} cases see cms logs for more details");
+                    await _caseManagerClient.CreateCaseAsync(caseToCreate);
+                }
+                catch (Exception ex)
+                {
+                    Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
+                    errors++;
+                }
+
+                Log.Logger.Information($"Successfully proccessed {total} cases with {errors} errors. See cms logs for more details");
             }
-
-            
-
         }
 
         public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
@@ -98,8 +100,10 @@ namespace Rsbc.Dmf.IcbcAdapter
         public async Task<List<DRVILS>> ParseIcbcNotication(IFormFile file)
         {
             Log.Logger.Information("Parsing ICBC Notification dat file...");
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("File is empty or null.");
+            if (file == null || file.Length == 0) { 
+                Log.Logger.Information("File is empty or null.");
+                return null;
+            }
 
             var records = new List<DRVILS>();
 

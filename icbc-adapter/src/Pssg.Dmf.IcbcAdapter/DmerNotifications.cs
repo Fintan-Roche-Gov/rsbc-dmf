@@ -49,7 +49,10 @@ namespace Rsbc.Dmf.IcbcAdapter
 				foreach (var notification in notifactions.NotificationFiles.Values)
 				{
 					var notifications = await ParseIcbcNotication(notification);
-					await CreateOrUpdateCases(notifications);
+					if (notifications != null)
+					{
+						await CreateOrUpdateCases(notifications);
+					}
 				}
 
 				await MoveProcessedFilesToProcessedFolder(notifactions);
@@ -92,35 +95,35 @@ namespace Rsbc.Dmf.IcbcAdapter
 
 		internal async Task CreateOrUpdateCases(List<DmerCaseRecord> cases, Func<DmerCaseRecord, CreateDmerCaseRequest> caseMapper)
 		{
-		
-				var total = 0;
-				foreach (var item in cases)
+			var total = 0;
+			var errors = 0;
+			foreach (var item in cases)
+			{
+				try
 				{
-					try
-					{
-						var caseToCreate = caseMapper(item);
+					var caseToCreate = caseMapper(item);
 
-						var result = await _caseManagerClient.CreateDmerCaseAsync(caseToCreate);
-						var recordLog = new RecordTrackingLogs
-						{
-							FileId = Guid.NewGuid().ToString(),
-							RecordId = Guid.NewGuid().ToString(),
-							RecievedTime = DateTime.UtcNow,
-							ProcessedTime = DateTime.UtcNow,
-							Status = result.ResultStatus == DmerStatusReply.Types.DmerResultStatus.Success ? StatusTracking.Processed : StatusTracking.ProcessedWithErrors,
-							RecordDetails = result.ErrorDetail,
-							DrivingLicenseNumber = item.DriverLicenseNumber
-						};
-						total++;
-					}
-					catch (Exception ex)
+					var result = await _caseManagerClient.CreateDmerCaseAsync(caseToCreate);
+					var recordLog = new RecordTrackingLogs
 					{
-						Log.Logger.Error("Error creating/updating DMER cases: " + ex.Message);
-					}
+						FileId = Guid.NewGuid().ToString(),
+						RecordId = Guid.NewGuid().ToString(),
+						RecievedTime = DateTime.UtcNow,
+						ProcessedTime = DateTime.UtcNow,
+						Status = result.ResultStatus == DmerStatusReply.Types.DmerResultStatus.Success ? StatusTracking.Processed : StatusTracking.ProcessedWithErrors,
+						RecordDetails = result.ErrorDetail,
+						DrivingLicenseNumber = item.DriverLicenseNumber
+					};
+					total++;
+				}
+				catch (Exception ex)
+				{
+					Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
+					errors++;
+				}
 
-                Log.Logger.Information($"Successfully proccessed {total} DMER cases see cms logs for more details");
+			   Log.Logger.Information($"Successfully proccessed {total} DMER cases with {errors} errors.See cms logs for more details");
 			}
-
 		}
 
 		public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
@@ -176,7 +179,8 @@ namespace Rsbc.Dmf.IcbcAdapter
 			Log.Logger.Information("Parsing DMER notification dat file...");
 			if (file == null || file.Length == 0)
 			{
-				throw new ArgumentException("File is empty or null.");
+                Log.Logger.Information("File is empty or null.");
+				return null;
 			}
 
 			var records = new List<DmerNotificationRecord>();
