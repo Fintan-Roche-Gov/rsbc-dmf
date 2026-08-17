@@ -97,7 +97,7 @@ namespace Rsbc.Dmf.IcbcAdapter.Tests
             flatFileUtils = new FlatFileUtils(Configuration, CaseManagerClient);
 
             enhancedIcbcApiUtils = new EnhancedIcbcApiUtils(Configuration, CaseManagerClient, IcbcClient);
-            icbcNotifactionsUtils = new IcbcNotifactionsUtils(Configuration, CaseManagerClient, IcbcClient, DocumentStorageAdapterClient);
+            icbcNotifactionsUtils = new IcbcNotifactionsUtils(Configuration, CaseManagerClient, DocumentStorageAdapterClient);
         }
 
         /// <summary>

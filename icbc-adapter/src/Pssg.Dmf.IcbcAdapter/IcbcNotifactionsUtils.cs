@@ -28,13 +28,11 @@ namespace Rsbc.Dmf.IcbcAdapter
         private readonly CaseManager.CaseManagerClient _caseManagerClient;
         private readonly DocumentStorageAdapter.DocumentStorageAdapterClient? _documentStorageAdapterClient;
 
-        private readonly IIcbcClient _icbcClient;
 
-        public IcbcNotifactionsUtils(IConfiguration configuration, CaseManager.CaseManagerClient caseManagerClient, IIcbcClient icbcClient, DocumentStorageAdapter.DocumentStorageAdapterClient? documentStorageAdapterClient)
+        public IcbcNotifactionsUtils(IConfiguration configuration, CaseManager.CaseManagerClient caseManagerClient, DocumentStorageAdapter.DocumentStorageAdapterClient? documentStorageAdapterClient)
         {
             _configuration = configuration;
             _caseManagerClient = caseManagerClient;
-            _icbcClient = icbcClient;
             _documentStorageAdapterClient = documentStorageAdapterClient;
         }
 
@@ -47,8 +45,10 @@ namespace Rsbc.Dmf.IcbcAdapter
                 {
 
                     var cases = await ParseIcbcNotication(notification);
-
-                    await CreateOrUpdateCases(cases);
+                    if (cases != null)
+                    {
+                        await CreateOrUpdateCases(cases);
+                    }
                 }
                 await RemoveFilesFromIcbcS3Bucket(notifactions.NotificationFiles.Keys);
             }
@@ -57,9 +57,11 @@ namespace Rsbc.Dmf.IcbcAdapter
 
         internal async Task CreateOrUpdateCases(List<DRVILS> cases)
         {
-            try
+            var total = 0;
+            var errors = 0;
+            foreach (DRVILS dmf_case in cases)
             {
-                foreach (DRVILS dmf_case in cases)
+                try
                 {
                     var caseToCreate = new CreateCaseRequest()
                     {
@@ -73,16 +75,14 @@ namespace Rsbc.Dmf.IcbcAdapter
 
                     await _caseManagerClient.CreateCaseAsync(caseToCreate);
                 }
+                catch (Exception ex)
+                {
+                    Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
+                    errors++;
+                }
 
-               
-                Log.Logger.Information($"Successfully proccessed {cases.Count} cases see cms logs for more details");
+                Log.Logger.Information($"Successfully proccessed {total} cases with {errors} errors. See cms logs for more details");
             }
-            catch (Exception ex)
-            {
-                Log.Logger.Error("Error creating/updating cases: " + ex.Message);
-            }
-            
-
         }
 
         public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
@@ -100,8 +100,10 @@ namespace Rsbc.Dmf.IcbcAdapter
         public async Task<List<DRVILS>> ParseIcbcNotication(IFormFile file)
         {
             Log.Logger.Information("Parsing ICBC Notification dat file...");
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("File is empty or null.");
+            if (file == null || file.Length == 0) { 
+                Log.Logger.Information("File is empty or null.");
+                return null;
+            }
 
             var records = new List<DRVILS>();
 
