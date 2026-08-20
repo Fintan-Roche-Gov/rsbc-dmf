@@ -119,7 +119,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 				catch (Exception ex)
 				{
                     errors++;
-                    Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
+                    Log.Logger.Error("Error processing DMER record in file: " + ex.Message);
 					
 				}
 			}
@@ -255,11 +255,6 @@ namespace Rsbc.Dmf.IcbcAdapter
 		private string ValidateRecord(DmerNotificationRecord record)
 		{
 			var errors = string.Empty;
-
-			if (string.IsNullOrWhiteSpace(record.Lnum) || record.Lnum.Contains(" "))
-			{
-				errors += "\nLicence Number: " + record.Lnum;
-			}
 
 			if (string.IsNullOrWhiteSpace(record.MedicalType))
 			{

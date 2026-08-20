@@ -78,7 +78,7 @@ namespace Rsbc.Dmf.IcbcAdapter
                 catch (Exception ex)
                 {
                     errors++;
-                    Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
+                    Log.Logger.Error("Error processing record in file: " + ex.Message);
                     
                 }
             }
@@ -158,10 +158,6 @@ namespace Rsbc.Dmf.IcbcAdapter
         private string ValidateRecord(DRVILS record)
         {
             string errors = null;
-            if (record.LNUM.Contains(" ") || record.LNUM == null || record.LNUM =="")
-            {
-                errors += "\nLicence Number: " + record.LNUM;
-            }
             if (record.CAND_CAUSE_CD == null || record.CAND_CAUSE_CD == "")
             {
                 errors += "\nMedical Type: " + record.CAND_CAUSE_CD;
