@@ -25,7 +25,6 @@ namespace Rsbc.Dmf.IcbcAdapter
 		private readonly DocumentStorageAdapter.DocumentStorageAdapterClient _documentStorageAdapterClient;
 		private readonly string _processedFolder;
         private readonly string _dmerFolder;
-        private string currentDate = DateTime.Now.ToString("MM/dd/yyyy");
 
         // Fixed-width mapping based on DMETEXT record layout.
         private const int DmeRecordLength = 118;
@@ -120,11 +119,11 @@ namespace Rsbc.Dmf.IcbcAdapter
 				catch (Exception ex)
 				{
                     errors++;
-                    Log.Logger.Error(currentDate +" Error creating/updating DMER case: " + ex.Message);
+                    Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
 					
 				}
 			}
-            Log.Logger.Information($"{currentDate} Successfully proccessed {total} DMER cases with {errors} errors.See cms logs for more details");
+            Log.Logger.Information($"Successfully proccessed {total} DMER cases with {errors} errors.See cms logs for more details");
         }
 
         public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
@@ -134,13 +133,13 @@ namespace Rsbc.Dmf.IcbcAdapter
 				throw new InvalidOperationException("Document storage adapter client is not configured.");
 			}
 
-			Log.Logger.Information(currentDate +" Removing DMER files from icbc S3 bucket");
+			Log.Logger.Information("Removing DMER files from icbc S3 bucket");
 			var request = new DeleteFilesInFolderRequest { BucketConfigName = "ICBC_NOTIFICATIONS_BUCKET" };
 			request.ServerRelativeUrl.AddRange(ServerRelativeUrl);
 			var result = await _documentStorageAdapterClient.DeleteFilesInFolderAsync(request);
 			if (result.ResultStatus == Pssg.DocumentStorageAdapter.ResultStatus.Success)
 			{
-				Log.Logger.Information(currentDate +currentDate + " Successfully removed DMER files from icbc S3 bucket");
+				Log.Logger.Information("Successfully removed DMER files from icbc S3 bucket");
 			}
 		}
 
@@ -164,13 +163,13 @@ namespace Rsbc.Dmf.IcbcAdapter
 				}
 				catch (Exception ex)
 				{
-					Log.Logger.Error($"{currentDate}  Unable to move DMER file {_dmerFolder} to {_processedFolder}: {ex.Message}");
+					Log.Logger.Error($"Unable to move DMER file {_dmerFolder} to {_processedFolder}: {ex.Message}");
 				}
 			}
 
 			if (movedCount > 0)
 			{
-				Log.Logger.Information(currentDate +$"Moved {movedCount} DMER files to {_processedFolder}");
+				Log.Logger.Information($"Moved {movedCount} DMER files to {_processedFolder}");
 			}
 		}
 
@@ -179,11 +178,11 @@ namespace Rsbc.Dmf.IcbcAdapter
 		{
 			var result = new DMERParseResult();
 
-            Log.Logger.Information(currentDate + " Parsing DMER notification dat file " + file.FileName);
+            Log.Logger.Information("Parsing DMER notification dat file " + file.FileName);
 
             if (file == null || file.Length == 0)
 			{
-                Log.Logger.Information(currentDate +" File is empty or null.");
+                Log.Logger.Information("File is empty or null.");
 				return null;
 			}
 			result.Errors = 0;
@@ -228,7 +227,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 						{
 							result.Errors++;
 
-							Log.Logger.Warning(currentDate + " Error parsing DMER Line Number: " + lineNumber + "\n Record: " + record + "\n Invalid values: " + validationErrors);
+							Log.Logger.Warning("Error parsing DMER Line Number: " + lineNumber + "\n Record: " + record + "\n Invalid values: " + validationErrors);
 						}
 					}
 					else
@@ -307,7 +306,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 				.ToList();
 
 			var fileNames = topLevelFiles.Select(f => f.FileName).ToList();
-			Log.Logger.Information(currentDate +" Fetching DMER notification dat file(s):" + string.Join(",", fileNames));
+			Log.Logger.Information("Fetching DMER notification dat file(s):" + string.Join(",", fileNames));
 
 			if (files.ResultStatus == Pssg.DocumentStorageAdapter.ResultStatus.Success)
 			{
@@ -323,7 +322,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 					};
 				}
 
-				Log.Logger.Information($"{currentDate} Successfully fetched {result.NotificationFiles.Count} DMER files from icbc S3 bucket");
+				Log.Logger.Information($"Successfully fetched {result.NotificationFiles.Count} DMER files from icbc S3 bucket");
 				return result;
 			}
 
