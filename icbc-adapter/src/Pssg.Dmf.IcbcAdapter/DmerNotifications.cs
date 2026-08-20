@@ -14,6 +14,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using static Pssg.DocumentStorageAdapter.DocumentStorageAdapter;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Rsbc.Dmf.IcbcAdapter
 {
@@ -24,6 +25,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 		private readonly DocumentStorageAdapter.DocumentStorageAdapterClient _documentStorageAdapterClient;
 		private readonly string _processedFolder;
         private readonly string _dmerFolder;
+        private string currentDate = DateTime.Now.ToString("MM/dd/yyyy");
 
         // Fixed-width mapping based on DMETEXT record layout.
         private const int DmeRecordLength = 118;
@@ -51,7 +53,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 					var notifications = await ParseIcbcNotication(notification);
 					if (notifications != null)
 					{
-						await CreateOrUpdateCases(notifications);
+						await CreateOrUpdateCases(notifications.Records, notifications.Errors);
 					}
 				}
 
@@ -59,7 +61,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 			}
 		}
 
-		internal async Task CreateOrUpdateCases(List<DmerNotificationRecord> notifications)
+		internal async Task CreateOrUpdateCases(List<DmerNotificationRecord> notifications, int errors)
 		{
 			var dmerCases = notifications.Select(MapToDmerCase).ToList();
 
@@ -76,7 +78,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 				DocumentOwner = "Team - Intake",
 				DocumentType = "DMER",
 				MedicalIssueDate = Timestamp.FromDateTime(dmerCase.MedicalIssueDate)
-            });
+            }, errors);
 		}
 
 		private DmerCaseRecord MapToDmerCase(DmerNotificationRecord source)
@@ -93,10 +95,9 @@ namespace Rsbc.Dmf.IcbcAdapter
 			};
 		}
 
-		internal async Task CreateOrUpdateCases(List<DmerCaseRecord> cases, Func<DmerCaseRecord, CreateDmerCaseRequest> caseMapper)
+		internal async Task CreateOrUpdateCases(List<DmerCaseRecord> cases, Func<DmerCaseRecord, CreateDmerCaseRequest> caseMapper, int errors)
 		{
 			var total = 0;
-			var errors = 0;
 			foreach (var item in cases)
 			{
 				try
@@ -118,28 +119,28 @@ namespace Rsbc.Dmf.IcbcAdapter
 				}
 				catch (Exception ex)
 				{
-					Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
-					errors++;
+                    errors++;
+                    Log.Logger.Error(currentDate +" Error creating/updating DMER case: " + ex.Message);
+					
 				}
-
-			   Log.Logger.Information($"Successfully proccessed {total} DMER cases with {errors} errors.See cms logs for more details");
 			}
-		}
+            Log.Logger.Information($"{currentDate} Successfully proccessed {total} DMER cases with {errors} errors.See cms logs for more details");
+        }
 
-		public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
+        public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
 		{
 			if (_documentStorageAdapterClient == null)
 			{
 				throw new InvalidOperationException("Document storage adapter client is not configured.");
 			}
 
-			Log.Logger.Information("Removing DMER files from icbc S3 bucket");
+			Log.Logger.Information(currentDate +" Removing DMER files from icbc S3 bucket");
 			var request = new DeleteFilesInFolderRequest { BucketConfigName = "ICBC_NOTIFICATIONS_BUCKET" };
 			request.ServerRelativeUrl.AddRange(ServerRelativeUrl);
 			var result = await _documentStorageAdapterClient.DeleteFilesInFolderAsync(request);
 			if (result.ResultStatus == Pssg.DocumentStorageAdapter.ResultStatus.Success)
 			{
-				Log.Logger.Information("Successfully removed DMER files from icbc S3 bucket");
+				Log.Logger.Information(currentDate +currentDate + " Successfully removed DMER files from icbc S3 bucket");
 			}
 		}
 
@@ -163,35 +164,38 @@ namespace Rsbc.Dmf.IcbcAdapter
 				}
 				catch (Exception ex)
 				{
-					Log.Logger.Error($"Unable to move DMER file {_dmerFolder} to {_processedFolder}: {ex.Message}");
+					Log.Logger.Error($"{currentDate}  Unable to move DMER file {_dmerFolder} to {_processedFolder}: {ex.Message}");
 				}
 			}
 
 			if (movedCount > 0)
 			{
-				Log.Logger.Information($"Moved {movedCount} DMER files to {_processedFolder}");
+				Log.Logger.Information(currentDate +$"Moved {movedCount} DMER files to {_processedFolder}");
 			}
 		}
 
 
-		public async Task<List<DmerNotificationRecord>> ParseIcbcNotication(IFormFile file)
+		public async Task<DMERParseResult> ParseIcbcNotication(IFormFile file)
 		{
-			Log.Logger.Information("Parsing DMER notification dat file...");
-			if (file == null || file.Length == 0)
+			var result = new DMERParseResult();
+
+            Log.Logger.Information(currentDate + " Parsing DMER notification dat file " + file.FileName);
+
+            if (file == null || file.Length == 0)
 			{
-                Log.Logger.Information("File is empty or null.");
+                Log.Logger.Information(currentDate +" File is empty or null.");
 				return null;
 			}
-
-			var records = new List<DmerNotificationRecord>();
-
+			result.Errors = 0;
+			result.Records = new List<DmerNotificationRecord>();
 			using (var reader = new StreamReader(file.OpenReadStream()))
 			{
 				string line;
 				int lineNumber = 0;
 				while ((line = await reader.ReadLineAsync()) != null)
 				{
-					if (string.IsNullOrWhiteSpace(line))
+                    lineNumber++;
+                    if (string.IsNullOrWhiteSpace(line))
 					{
 						continue;
 					}
@@ -220,17 +224,22 @@ namespace Rsbc.Dmf.IcbcAdapter
 					var validationErrors = ValidateRecord(record);
 					if (!string.IsNullOrEmpty(validationErrors))
 					{
-						Log.Logger.Warning("Error parsing DMER Line Number: " + lineNumber + "\n Record: " + record + "\n Invalid values: " + validationErrors);
+						if (!line.Contains("RUN DATE"))
+						{
+							result.Errors++;
+
+							Log.Logger.Warning(currentDate + " Error parsing DMER Line Number: " + lineNumber + "\n Record: " + record + "\n Invalid values: " + validationErrors);
+						}
 					}
 					else
 					{
-						records.Add(record);
+						result.Records.Add(record);
 					}
-					lineNumber++;
+					
 				}
 			}
 
-			return records;
+			return result;
 		}
 
 		private static string Slice(string value, int start, int length)
@@ -250,12 +259,12 @@ namespace Rsbc.Dmf.IcbcAdapter
 
 			if (string.IsNullOrWhiteSpace(record.Lnum) || record.Lnum.Contains(" "))
 			{
-				errors += "\nLNUM: " + record.Lnum;
+				errors += "\nLicence Number: " + record.Lnum;
 			}
 
 			if (string.IsNullOrWhiteSpace(record.MedicalType))
 			{
-				errors += "\nMDTP: " + record.MedicalType;
+				errors += "\nMedical Type: " + record.MedicalType;
 			}
 
 			return string.IsNullOrEmpty(errors) ? null : errors;
@@ -298,7 +307,7 @@ namespace Rsbc.Dmf.IcbcAdapter
 				.ToList();
 
 			var fileNames = topLevelFiles.Select(f => f.FileName).ToList();
-			Log.Logger.Information("Fetching DMER notification dat file(s):" + string.Join(",", fileNames));
+			Log.Logger.Information(currentDate +" Fetching DMER notification dat file(s):" + string.Join(",", fileNames));
 
 			if (files.ResultStatus == Pssg.DocumentStorageAdapter.ResultStatus.Success)
 			{
@@ -307,18 +316,18 @@ namespace Rsbc.Dmf.IcbcAdapter
 					var stream = new MemoryStream(fileBytes.Data.ToByteArray());
 					var fileName = fileBytes.ServerRelativeUrl.Split('/').Last();
 
-                    result.NotificationFiles[fileName] = new FormFile(stream, 0, stream.Length, "file", "DMER_Notifications")
+                    result.NotificationFiles[fileName] = new FormFile(stream, 0, stream.Length, "file", fileName)
 					{
 						Headers = new HeaderDictionary(),
 						ContentType = "application/octet-stream"
 					};
 				}
 
-				Log.Logger.Information($"Successfully fetched {result.NotificationFiles.Count} DMER files from icbc S3 bucket");
+				Log.Logger.Information($"{currentDate} Successfully fetched {result.NotificationFiles.Count} DMER files from icbc S3 bucket");
 				return result;
 			}
 
-			return null;
+            return null;
 		}
 	}
 	public class FileTrackingLogs
@@ -355,4 +364,10 @@ namespace Rsbc.Dmf.IcbcAdapter
         Processed = 2,
         ProcessedWithErrors = 3
     }
+
+	public class DMERParseResult
+	{
+		public List<DmerNotificationRecord> Records { get; set; }
+		public int Errors { get; set; }
+	}
 }
