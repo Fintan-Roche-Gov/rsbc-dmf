@@ -44,10 +44,10 @@ namespace Rsbc.Dmf.IcbcAdapter
                 foreach (var notification in notifactions.NotificationFiles.Values)
                 {
 
-                    var cases = await ParseIcbcNotication(notification);
-                    if (cases != null)
+                    var parseResult = await ParseIcbcNotication(notification);
+                    if (parseResult != null)
                     {
-                        await CreateOrUpdateCases(cases);
+                        await CreateOrUpdateCases(parseResult.Records, parseResult.Errors);
                     }
                 }
                 await RemoveFilesFromIcbcS3Bucket(notifactions.NotificationFiles.Keys);
@@ -55,14 +55,14 @@ namespace Rsbc.Dmf.IcbcAdapter
 
         }
 
-        internal async Task CreateOrUpdateCases(List<DRVILS> cases)
+        internal async Task CreateOrUpdateCases(List<DRVILS> cases, int errors)
         {
             var total = 0;
-            var errors = 0;
             foreach (DRVILS dmf_case in cases)
             {
                 try
                 {
+                    total++;
                     var caseToCreate = new CreateCaseRequest()
                     {
                         DriverLicenseNumber = dmf_case.LNUM,
@@ -77,12 +77,12 @@ namespace Rsbc.Dmf.IcbcAdapter
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error("Error creating/updating DMER case: " + ex.Message);
                     errors++;
+                    Log.Logger.Error("Error processing record in file: " + ex.Message);
+                    
                 }
-
-                Log.Logger.Information($"Successfully proccessed {total} cases with {errors} errors. See cms logs for more details");
             }
+            Log.Logger.Information($"Successfully proccessed {total} cases with {errors} errors. See cms logs for more details");
         }
 
         public async Task RemoveFilesFromIcbcS3Bucket(IEnumerable<string> ServerRelativeUrl)
@@ -97,15 +97,17 @@ namespace Rsbc.Dmf.IcbcAdapter
             }
         }
 
-        public async Task<List<DRVILS>> ParseIcbcNotication(IFormFile file)
+        public async Task<ParseResult> ParseIcbcNotication(IFormFile file)
         {
-            Log.Logger.Information("Parsing ICBC Notification dat file...");
+            var result = new ParseResult();
+
+            Log.Logger.Information("Parsing ICBC Notification dat file " + file.FileName);
             if (file == null || file.Length == 0) { 
                 Log.Logger.Information("File is empty or null.");
                 return null;
             }
-
-            var records = new List<DRVILS>();
+            result.Errors = 0;
+            result.Records = new List<DRVILS>();
 
             using (var reader = new StreamReader(file.OpenReadStream()))
             {
@@ -134,30 +136,31 @@ namespace Rsbc.Dmf.IcbcAdapter
 
                     if (validationErrors != null)
                     {
-                        Log.Logger.Warning($"Record was not added: " + record.ToString() + "\n Invalid values: " + validationErrors);
+
+                        if (!line.Contains("RUN DATE"))
+                        {
+                            result.Errors++;
+                            Log.Logger.Warning($"Record was not added: " + record.ToString() + "\n Invalid values: " + validationErrors);
+                        }
                     }
 
                     else
                     {
-                        records.Add(record);
+                        result.Records.Add(record);
                     }
                 }
             }
 
-            return records;
+            return result;
         }
 
 
         private string ValidateRecord(DRVILS record)
         {
             string errors = null;
-            if (record.LNUM.Contains(" ") || record.LNUM == null || record.LNUM =="")
-            {
-                errors += "\nLNUM: " + record.LNUM;
-            }
             if (record.CAND_CAUSE_CD == null || record.CAND_CAUSE_CD == "")
             {
-                errors += "\nCAND_CAUSE_CD: " + record.CAND_CAUSE_CD;
+                errors += "\nMedical Type: " + record.CAND_CAUSE_CD;
             }
 
             return errors;
@@ -193,5 +196,10 @@ namespace Rsbc.Dmf.IcbcAdapter
 
                 
         }
+    }
+    public class ParseResult
+    {
+        public List<DRVILS> Records { get; set; }
+        public int Errors { get; set; }
     }
 }
