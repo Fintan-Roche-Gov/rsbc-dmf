@@ -6042,7 +6042,7 @@ namespace Rsbc.Dmf.CaseManagement
             }
             if (dmerEntity.bcgov_incident_bcgov_documenturl.Any(x => x.dfp_submittalstatus == (int)submittalStatusOptionSet.OpenRequired && x.dfp_DocumentTypeID?.dfp_name == "DMER"))
             {
-                Log.Information($"Document was not added to Case {request.CaseId}. Case already has an open document URL.");
+                Log.Information($"Case {request.CaseId} with document type DMER and document status Open Required already exists. The document is not added.");
                 return;
             }
             
