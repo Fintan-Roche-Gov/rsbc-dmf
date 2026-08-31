@@ -6040,6 +6040,8 @@ namespace Rsbc.Dmf.CaseManagement
             {
                 throw new InvalidOperationException($"Case {request.CaseId} not found.");
             }
+
+            var documentTypeId = GetDocumentType(null, request.DocumentType, null);
             if (dmerEntity.bcgov_incident_bcgov_documenturl.Any(x => x.dfp_submittalstatus == (int)submittalStatusOptionSet.OpenRequired && x.dfp_DocumentTypeID?.dfp_name == "DMER"))
             {
                 Log.Information($"Case {request.CaseId} with document type DMER and document status Open Required already exists. The document is not added.");
