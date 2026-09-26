@@ -350,7 +350,7 @@ namespace Rsbc.Dmf.IcbcAdapter.Tests
         [Fact]
         public async Task ParseNotifacationFailPassAsync()
         {
-            var testRecords = await icbcNotifactionsUtils.ParseIcbcNotication(CreateTestFile());
+            var testRecords = await icbcNotifactionsUtils.ParseRehabNotication(CreateTestFile());
 
             Assert.Equal("01234567", testRecords.Records[0].LNUM);
             Assert.Equal("012345672", testRecords.Records[0].CLNO);
